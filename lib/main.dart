@@ -1,8 +1,6 @@
-// lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/login_screen.dart';  // ← login_screen import
+import 'screens/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,10 +24,8 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),  // LoginScreen은 이제 별도 파일에서 import
+      home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
-
-// LoginScreen 클래스는 삭제 (login_screen.dart로 이동했으므로)

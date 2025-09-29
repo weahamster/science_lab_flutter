@@ -1,8 +1,6 @@
-// lib/screens/login_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../screens/main_screen.dart';
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,11 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       
       if (response.user != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('로그인 성공!')),
-        );
-        
-        // 화면 전환
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => const MainScreen(),
@@ -55,13 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
@@ -80,26 +66,17 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.science, size: 30, color: Colors.blue),
-                      SizedBox(width: 10),
-                      Text(
-                        '실험재료 관리 시스템',
-                        style: TextStyle(
-                          fontSize: 24, 
-                          fontWeight: FontWeight.bold
-                        ),
-                      ),
-                    ],
+                  const Icon(Icons.science, size: 50, color: Colors.blue),
+                  const SizedBox(height: 10),
+                  const Text(
+                    '실험재료 관리 시스템',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 30),
                   TextField(
                     controller: _emailController,
                     decoration: const InputDecoration(
                       labelText: '이메일',
-                      hintText: 'teacher1@test.com',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.email),
                     ),
@@ -114,7 +91,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.lock),
                     ),
                     obscureText: true,
-                    onSubmitted: (_) => _signIn(),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -124,19 +100,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _isLoading ? null : _signIn,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
                       ),
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              '로그인', 
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
+                          : const Text('로그인', style: TextStyle(color: Colors.white, fontSize: 16)),
                     ),
                   ),
                 ],

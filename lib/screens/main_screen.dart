@@ -1,36 +1,12 @@
-// lib/screens/main_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-// 화면 imports
-import 'home_screen.dart';
 import 'login_screen.dart';
-
-// 실험 관련 화면들
-import 'experiments/experiment_list_screen.dart';
-import 'experiments/new_experiment_screen.dart';
-import 'experiments/experiment_report_screen.dart';
-
-// 장비 관련 화면들
-import 'equipment/equipment_list_screen.dart';
-import 'equipment/equipment_reservation_screen.dart';
-import 'equipment/maintenance_screen.dart';
-
-// 재고 관련 화면들
-import 'inventory/inventory_screen.dart';
-import 'inventory/chemical_list_screen.dart';
-import 'inventory/purchase_request_screen.dart';
-
-// 보고서 관련 화면들
-import 'reports/report_screen.dart';
-import 'reports/data_analysis_screen.dart';
-import 'reports/report_generator_screen.dart';
-import 'reports/statistics_screen.dart';
-
-// 설정 관련 화면들
-import 'settings/user_management_screen.dart';
-import 'settings/settings_screen.dart';
+import 'dashboard_screen.dart';
+import 'purchase/purchase_screen.dart';
+import 'class_management/class_management_screen.dart';
+import 'material_request/material_request_screen.dart';
+import 'item_management/item_management_screen.dart';
+import 'equipment_management/equipment_management_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -40,19 +16,16 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-  String _currentTitle = '홈';
-  Widget _currentScreen = const HomeScreen();
-  
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  String _currentTitle = '대시보드';
+  Widget _currentScreen = DashboardScreen();  // const 제거
 
-  void _navigateToScreen(String title, Widget screen) {
+  void _selectMenu(String title, Widget screen) {
     setState(() {
       _currentTitle = title;
       _currentScreen = screen;
-      _selectedIndex = -1; // 하단 네비게이션 선택 해제
     });
-    Navigator.pop(context); // Drawer 닫기
+    Navigator.pop(context);
   }
 
   @override
@@ -61,6 +34,7 @@ class _MainScreenState extends State<MainScreen> {
     
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
@@ -72,330 +46,190 @@ class _MainScreenState extends State<MainScreen> {
         ),
         title: Text(
           _currentTitle,
-          style: const TextStyle(color: Colors.black),
+          style: const TextStyle(color: Colors.black, fontSize: 18),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined, color: Colors.black),
-            onPressed: () {
-              // 알림 화면
-            },
+            onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.person_outline, color: Colors.black),
-            onPressed: () {
-              // 프로필 화면
-            },
+            onPressed: () {},
           ),
         ],
       ),
-      drawer: _buildDrawer(user),
-      body: _currentScreen,
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex == -1 ? 0 : _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-            switch (index) {
-              case 0:
-                _currentTitle = '홈';
-                _currentScreen = const HomeScreen();
-                break;
-              case 1:
-                _currentTitle = '실험';
-                _currentScreen = const ExperimentListScreen();
-                break;
-              case 2:
-                _currentTitle = '장비';
-                _currentScreen = const EquipmentListScreen();
-                break;
-              case 3:
-                _currentTitle = '재고';
-                _currentScreen = const InventoryScreen();
-                break;
-              case 4:
-                _currentTitle = '더보기';
-                // 더보기 화면
-                break;
-            }
-          });
-        },
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.science),
-            label: '실험',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.devices),
-            label: '장비',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory),
-            label: '재고',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.more_horiz),
-            label: '더보기',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawer(User? user) {
-    return Drawer(
-      child: Column(
-        children: [
-          // Drawer Header
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 20,
-              bottom: 20,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.blue.shade400, Colors.blue.shade600],
-              ),
-            ),
-            child: Column(
-              children: [
-                // 프로필 정보
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    size: 40,
-                    color: Colors.blue.shade600,
+      
+      drawer: Drawer(
+        child: Container(
+          color: Colors.white,
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + 20,
+                  left: 20,
+                  right: 20,
+                  bottom: 20,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade200),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  user?.email ?? '사용자',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  '실험실 관리자',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // 메뉴 리스트
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                // 실험 관리 섹션
-                _buildSectionHeader('실험 관리'),
-                _buildDrawerItem(
-                  icon: Icons.science,
-                  title: '실험 목록',
-                  onTap: () {
-                    _navigateToScreen('실험 목록', ExperimentListScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.add_circle_outline,
-                  title: '새 실험 등록',
-                  onTap: () {
-                    _navigateToScreen('새 실험 등록', NewExperimentScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.assignment,
-                  title: '실험 보고서',
-                  onTap: () {
-                    _navigateToScreen('실험 보고서', ExperimentReportScreen());
-                  },
-                ),
-                
-                const Divider(),
-                
-                // 장비 관리 섹션
-                _buildSectionHeader('장비 관리'),
-                _buildDrawerItem(
-                  icon: Icons.devices,
-                  title: '장비 목록',
-                  onTap: () {
-                    _navigateToScreen('장비 목록', EquipmentListScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.calendar_today,
-                  title: '장비 예약',
-                  onTap: () {
-                    _navigateToScreen('장비 예약', EquipmentReservationScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.build,
-                  title: '유지보수 일정',
-                  onTap: () {
-                    _navigateToScreen('유지보수 일정', MaintenanceScreen());
-                  },
-                ),
-                
-                const Divider(),
-                
-                // 재고 관리 섹션
-                _buildSectionHeader('재고 관리'),
-                _buildDrawerItem(
-                  icon: Icons.inventory,
-                  title: '재고 현황',
-                  onTap: () {
-                    _navigateToScreen('재고 현황', InventoryScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.warning_amber,
-                  title: '화학물질 관리',
-                  onTap: () {
-                    _navigateToScreen('화학물질 관리', ChemicalListScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.shopping_cart,
-                  title: '구매 요청',
-                  onTap: () {
-                    _navigateToScreen('구매 요청', PurchaseRequestScreen());
-                  },
-                ),
-                
-                const Divider(),
-                
-                // 데이터 분석 섹션
-                _buildSectionHeader('데이터 & 보고서'),
-                _buildDrawerItem(
-                  icon: Icons.analytics,
-                  title: '데이터 분석',
-                  onTap: () {
-                    _navigateToScreen('데이터 분석', DataAnalysisScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.assessment,
-                  title: '보고서 생성',
-                  onTap: () {
-                    _navigateToScreen('보고서 생성', ReportGeneratorScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.bar_chart,
-                  title: '통계',
-                  onTap: () {
-                    _navigateToScreen('통계', StatisticsScreen());
-                  },
-                ),
-                
-                const Divider(),
-                
-                // 설정 섹션
-                _buildSectionHeader('설정'),
-                _buildDrawerItem(
-                  icon: Icons.people,
-                  title: '사용자 관리',
-                  onTap: () {
-                    _navigateToScreen('사용자 관리', UserManagementScreen());
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.settings,
-                  title: '시스템 설정',
-                  onTap: () {
-                    _navigateToScreen('시스템 설정', SettingsScreen());
-                  },
-                ),
-              ],
-            ),
-          ),
-          
-          // 로그아웃 버튼
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                  offset: const Offset(0, -3),
-                ),
-              ],
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  await Supabase.instance.client.auth.signOut();
-                  if (mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.logout),
-                label: const Text('로그아웃'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Colors.blue,
+                          radius: 30,
+                          child: Text(
+                            user?.email?.substring(0, 1).toUpperCase() ?? 'T',
+                            style: const TextStyle(color: Colors.white, fontSize: 24),
+                          ),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '교사',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                user?.email ?? 'teacher@school.com',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ),
+              
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _buildMenuItem(
+                      icon: Icons.home,
+                      title: '대시보드',
+                      onTap: () => _selectMenu('대시보드', DashboardScreen()),  // const 제거
+                      isSelected: _currentTitle == '대시보드',
+                    ),
+                    _buildMenuItem(
+                      icon: Icons.shopping_cart,
+                      title: '물품 구입',
+                      onTap: () => _selectMenu('물품 구입', PurchaseScreen()),  // const 제거
+                      isSelected: _currentTitle == '물품 구입',
+                    ),
+                    _buildMenuItem(
+                      icon: Icons.school,
+                      title: '강의 관리',
+                      count: 1,
+                      onTap: () => _selectMenu('강의 관리', ClassManagementScreen()),  // const 제거
+                      isSelected: _currentTitle == '강의 관리',
+                    ),
+                    _buildMenuItem(
+                      icon: Icons.inbox,
+                      title: '재료 신청 관리',
+                      count: 2,
+                      onTap: () => _selectMenu('재료 신청 관리', MaterialRequestScreen()),  // const 제거
+                      isSelected: _currentTitle == '재료 신청 관리',
+                    ),
+                    _buildMenuItem(
+                      icon: Icons.inventory,
+                      title: '물품 관리',
+                      onTap: () => _selectMenu('물품 관리', ItemManagementScreen()),  // const 제거
+                      isSelected: _currentTitle == '물품 관리',
+                    ),
+                    _buildMenuItem(
+                      icon: Icons.settings,
+                      title: '기자재 관리',
+                      onTap: () => _selectMenu('기자재 관리', EquipmentManagementScreen()),  // const 제거
+                      isSelected: _currentTitle == '기자재 관리',
+                    ),
+                    
+                    const Divider(height: 30),
+                    
+                    ListTile(
+                      leading: const Icon(Icons.logout, color: Colors.red),
+                      title: const Text('로그아웃'),
+                      onTap: () async {
+                        await Supabase.instance.client.auth.signOut();
+                        if (mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: Colors.grey.shade600,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
         ),
       ),
+      
+      body: _currentScreen,
     );
   }
   
-  Widget _buildDrawerItem({
+  Widget _buildMenuItem({
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    int? count,
+    bool isSelected = false,
   }) {
-    return ListTile(
-      leading: Icon(icon, size: 24),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 14),
+    return Container(
+      color: isSelected ? Colors.blue.shade50 : null,
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: isSelected ? Colors.blue : Colors.grey[700],
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.blue : Colors.black,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        trailing: count != null
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                ),
+              )
+            : null,
+        onTap: onTap,
       ),
-      onTap: onTap,
-      dense: true,
     );
   }
 }
