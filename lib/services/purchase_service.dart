@@ -1,5 +1,3 @@
-# 파일 생성 및 내용 추가
-@'
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/purchase_item.dart';
 
@@ -60,4 +58,3 @@ class PurchaseService {
     }
   }
 }
-'@ | Out-File -FilePath "lib\services\purchase_service.dart" -Encoding UTF8

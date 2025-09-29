@@ -338,14 +338,14 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
                           ),
                         ),
                         title: Text(
-                          course['name'] ?? '',
+                          course['title'] ?? '',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (course['grade'] != null && course['grade'].toString().isNotEmpty)
-                              Text('반: ${course['grade']}'),
+                            if (course['class'] != null && course['class'].toString().isNotEmpty)
+                              Text('반: ${course['class']}'),
                             Text('학생 수: $studentCount명'),
                           ],
                         ),
