@@ -140,14 +140,12 @@ class _TeacherMainScreenState extends State<TeacherMainScreen> {
                     _buildMenuItem(
                       icon: Icons.school,
                       title: '강의 관리',
-                      count: 1,
                       onTap: () => _selectMenu('강의 관리', ClassManagementScreen()),  // const 제거
                       isSelected: _currentTitle == '강의 관리',
                     ),
                     _buildMenuItem(
                       icon: Icons.inbox,
                       title: '재료 신청 관리',
-                      count: 2,
                       onTap: () => _selectMenu('재료 신청 관리', MaterialRequestScreen()),  // const 제거
                       isSelected: _currentTitle == '재료 신청 관리',
                     ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/teacher/course_service.dart';  // 경로 수정
+import '../../services/teacher/course_service.dart';
 
 class ClassManagementScreen extends StatefulWidget {
   const ClassManagementScreen({super.key});
@@ -10,7 +10,10 @@ class ClassManagementScreen extends StatefulWidget {
 
 class _ClassManagementScreenState extends State<ClassManagementScreen> {
   List<Map<String, dynamic>> _courses = [];
+  List<Map<String, dynamic>> _filteredCourses = [];
+  Set<String> _selectedIds = {};
   bool _isLoading = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -24,6 +27,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
       final courses = await CourseService.getCourses();
       setState(() {
         _courses = courses;
+        _applyFilter();
       });
     } catch (e) {
       if (mounted) {
@@ -33,6 +37,92 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  void _applyFilter() {
+    setState(() {
+      if (_searchQuery.isEmpty) {
+        _filteredCourses = _courses;
+      } else {
+        final query = _searchQuery.toLowerCase();
+        _filteredCourses = _courses.where((course) {
+          final name = (course['name'] ?? '').toLowerCase();
+          final title = (course['title'] ?? '').toLowerCase();
+          final className = (course['class'] ?? '').toLowerCase();
+          final grade = (course['grade'] ?? '').toLowerCase();
+          final description = (course['description'] ?? '').toLowerCase();
+          return name.contains(query) ||
+                 title.contains(query) ||
+                 className.contains(query) ||
+                 grade.contains(query) ||
+                 description.contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  void _toggleSelect(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _toggleSelectAll(bool? value) {
+    setState(() {
+      if (value ?? false) {
+        _selectedIds = _filteredCourses
+            .map((c) => c['id'].toString())
+            .toSet();
+      } else {
+        _selectedIds.clear();
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selectedIds.isEmpty) return;
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('삭제 확인'),
+        content: Text('선택한 ${_selectedIds.length}개 강의를 삭제하시겠습니까?\n관련된 모든 데이터가 삭제됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm == true) {
+      try {
+        for (String id in _selectedIds) {
+          await CourseService.deleteCourse(id);
+        }
+        setState(() {
+          _selectedIds.clear();
+        });
+        await _loadCourses();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('선택한 강의가 삭제되었습니다')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('삭제 실패: $e')),
+        );
+      }
     }
   }
 
@@ -133,8 +223,8 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
   }
 
   void _showEditCourseDialog(Map<String, dynamic> course) {
-    final nameController = TextEditingController(text: course['name']);
-    final gradeController = TextEditingController(text: course['grade'] ?? '');
+    final nameController = TextEditingController(text: course['name'] ?? course['title']);
+    final gradeController = TextEditingController(text: course['grade'] ?? course['class'] ?? '');
     final descriptionController = TextEditingController(text: course['description'] ?? '');
 
     showDialog(
@@ -258,113 +348,248 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isPhoneScreen = screenWidth < 600;
+    
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     return Column(
       children: [
-        // 상단 정보 카드
+        // 상단 검색 바
         Container(
-          width: double.infinity,
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 1,
-                blurRadius: 5,
-              ),
-            ],
+          padding: EdgeInsets.all(isPhoneScreen ? 8 : 16),
+          color: Colors.white,
+          child: isPhoneScreen
+              ? Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: '검색...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        _searchQuery = value;
+                        _applyFilter();
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _showAddCourseDialog,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('새 강의'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: '강의명, 반, 설명으로 검색...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          _searchQuery = value;
+                          _applyFilter();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: _showAddCourseDialog,
+                      icon: const Icon(Icons.add),
+                      label: const Text('새 강의 만들기'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+        
+        // 액션 바
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isPhoneScreen ? 8 : 16,
+            vertical: 8,
           ),
+          color: Colors.grey[100],
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    '강의 관리',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Transform.scale(
+                    scale: isPhoneScreen ? 0.8 : 1.0,
+                    child: Checkbox(
+                      value: _selectedIds.length == _filteredCourses.length && 
+                             _filteredCourses.isNotEmpty,
+                      onChanged: _toggleSelectAll,
+                    ),
                   ),
-                  const SizedBox(height: 4),
                   Text(
-                    '전체 강의: ${_courses.length}개',
-                    style: TextStyle(color: Colors.grey[600]),
+                    isPhoneScreen 
+                      ? '${_selectedIds.length}/${_filteredCourses.length}'
+                      : '전체 선택 (${_selectedIds.length}/${_filteredCourses.length})',
+                    style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
                   ),
                 ],
               ),
-              ElevatedButton.icon(
-                onPressed: _showAddCourseDialog,
-                icon: const Icon(Icons.add),
-                label: const Text('새 강의 만들기'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!isPhoneScreen)
+                    Text(
+                      '전체: ${_filteredCourses.length}개',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    onPressed: _loadCourses,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                  ),
+                  if (_selectedIds.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                      onPressed: _deleteSelected,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
               ),
             ],
           ),
         ),
-
-        // 강의 목록
+        
+        // 테이블 - 모든 기기에서 동일하게
         Expanded(
-          child: _courses.isEmpty
-              ? const Center(
+          child: _filteredCourses.isEmpty
+              ? Center(
                   child: Text(
-                    '등록된 강의가 없습니다\n새 강의를 만들어보세요',
+                    _searchQuery.isEmpty 
+                      ? '등록된 강의가 없습니다\n새 강의를 만들어보세요'
+                      : '검색 결과가 없습니다',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _courses.length,
-                  itemBuilder: (context, index) {
-                    final course = _courses[index];
-                    final studentCount = course['student_count'] ?? 0;
-                    
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue,
-                          child: Text(
-                            course['name']?.substring(0, 1) ?? '',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        title: Text(
-                          course['title'] ?? '',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (course['class'] != null && course['class'].toString().isNotEmpty)
-                              Text('반: ${course['class']}'),
-                            Text('학생 수: $studentCount명'),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _showEditCourseDialog(course),
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SingleChildScrollView(
+                    child: DataTable(
+                      columnSpacing: isPhoneScreen ? 12 : 30,
+                      horizontalMargin: isPhoneScreen ? 8 : 24,
+                      columns: [
+                        const DataColumn(label: Text('')),
+                        DataColumn(label: Text('강의명', 
+                          style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
+                        DataColumn(label: Text('반', 
+                          style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
+                        DataColumn(label: Text('학생', 
+                          style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
+                        DataColumn(label: Text('설명', 
+                          style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
+                        DataColumn(label: Text('작업', 
+                          style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
+                      ],
+                      rows: _filteredCourses.map((course) {
+                        final id = course['id'].toString();
+                        final studentCount = course['student_count'] ?? 0;
+                        
+                        return DataRow(
+                          selected: _selectedIds.contains(id),
+                          cells: [
+                            DataCell(
+                              Transform.scale(
+                                scale: isPhoneScreen ? 0.8 : 1.0,
+                                child: Checkbox(
+                                  value: _selectedIds.contains(id),
+                                  onChanged: (_) => _toggleSelect(id),
+                                ),
+                              ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _deleteCourse(course['id'].toString()),
+                            DataCell(
+                              Text(
+                                course['title'] ?? course['name'] ?? '',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: isPhoneScreen ? 12 : 14,
+                                ),
+                              ),
+                            ),
+                            DataCell(Text(
+                              course['class'] ?? course['grade'] ?? '',
+                              style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
+                            )),
+                            DataCell(Text(
+                              '$studentCount명',
+                              style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
+                            )),
+                            DataCell(
+                              Container(
+                                constraints: BoxConstraints(
+                                  maxWidth: isPhoneScreen ? 100 : 200,
+                                ),
+                                child: Text(
+                                  course['description'] ?? '',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.edit, 
+                                      color: Colors.blue,
+                                      size: isPhoneScreen ? 18 : 20,
+                                    ),
+                                    onPressed: () => _showEditCourseDialog(course),
+                                    padding: const EdgeInsets.all(2),
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete, 
+                                      color: Colors.red,
+                                      size: isPhoneScreen ? 18 : 20,
+                                    ),
+                                    onPressed: () => _deleteCourse(id),
+                                    padding: const EdgeInsets.all(2),
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-                        ),
-                      ),
-                    );
-                  },
+                        );
+                      }).toList(),
+                    ),
+                  ),
                 ),
         ),
       ],

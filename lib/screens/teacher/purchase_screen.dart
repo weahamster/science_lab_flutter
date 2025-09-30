@@ -270,6 +270,170 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     );
   }
   
+  // 수정 다이얼로그 메서드 추가
+  void _showEditItemDialog(PurchaseItem item) {
+    final nameController = TextEditingController(text: item.name);
+    final quantityController = TextEditingController(text: item.quantity.toString());
+    final priceController = TextEditingController(text: item.price.toString());
+    final linkController = TextEditingController(text: item.link);
+    String selectedUnit = item.unit;
+    int totalPrice = item.totalPrice;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          void calculateTotal() {
+            final quantity = int.tryParse(quantityController.text) ?? 0;
+            final price = int.tryParse(priceController.text) ?? 0;
+            setDialogState(() {
+              totalPrice = quantity * price;
+            });
+          }
+          
+          return AlertDialog(
+            title: const Text('물품 수정'),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: '물품명',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: quantityController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            decoration: const InputDecoration(
+                              labelText: '수량',
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (_) => calculateTotal(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<String>(
+                            value: selectedUnit,
+                            decoration: const InputDecoration(
+                              labelText: '단위',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: ['개', '박스', 'kg', 'L', 'mL', 'g', '세트']
+                                .map((unit) => DropdownMenuItem(
+                                      value: unit,
+                                      child: Text(unit),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              setDialogState(() {
+                                selectedUnit = value!;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: priceController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(
+                        labelText: '단가 (원)',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => calculateTotal(),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('총금액'),
+                          Text(
+                            '${_numberFormat.format(totalPrice)}원',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: linkController,
+                      decoration: const InputDecoration(
+                        labelText: '구매 링크 (선택사항)',
+                        hintText: 'https://...',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.url,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('취소'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('물품명을 입력해주세요')),
+                    );
+                    return;
+                  }
+                  
+                  Navigator.of(dialogContext).pop();
+                  
+                  final updatedItem = PurchaseItem(
+                    id: item.id,
+                    name: nameController.text.trim(),
+                    quantity: int.tryParse(quantityController.text) ?? 1,
+                    unit: selectedUnit,
+                    price: int.tryParse(priceController.text) ?? 0,
+                    link: linkController.text.trim(),
+                  );
+                  
+                  await PurchaseService.updatePurchaseItem(updatedItem);
+                  _loadItems();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('물품이 수정되었습니다')),
+                  );
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: const Text('수정', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -288,9 +452,9 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 '물품 구입 신청',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               Text(
                 '총 금액: ${_numberFormat.format(totalAmount)}원',
@@ -400,14 +564,23 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                                     : const Text('-'),
                               ),
                               DataCell(
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                  onPressed: () async {
-                                    await PurchaseService.deletePurchaseItem(item.id);
-                                    setState(() {
-                                      _items.removeWhere((i) => i.id == item.id);
-                                    });
-                                  },
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, color: Colors.blue),
+                                      onPressed: () => _showEditItemDialog(item),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                      onPressed: () async {
+                                        await PurchaseService.deletePurchaseItem(item.id);
+                                        setState(() {
+                                          _items.removeWhere((i) => i.id == item.id);
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],

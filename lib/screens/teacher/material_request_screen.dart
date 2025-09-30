@@ -22,7 +22,6 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
   
   Map<String, Map<String, dynamic>> _experimentsData = {};
   
-  // 토글 상태
   Set<String> _expandedCourses = {};
   Set<String> _expandedExperiments = {};
   
@@ -106,7 +105,6 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
     return grouped;
   }
 
-  // 강의 레벨에서 하위 모든 항목 선택
   void _toggleCourseSelection(String courseTitle, Map<String, List<MaterialRequest>> experiments) {
     final allRequests = experiments.values.expand((requests) => requests).toList();
     final allIds = allRequests.map((r) => r.id).toSet();
@@ -121,7 +119,6 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
     });
   }
 
-  // 실험 레벨에서 하위 모든 항목 선택
   void _toggleExperimentSelection(List<MaterialRequest> requests) {
     final allIds = requests.map((r) => r.id).toSet();
     final allSelected = allIds.every((id) => _selectedIds.contains(id));
@@ -145,37 +142,154 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
     });
   }
 
+  // 수정 다이얼로그 메서드 추가
+  void _showEditRequestDialog(MaterialRequest request) {
+    final nameController = TextEditingController(text: request.name);
+    final quantityController = TextEditingController(text: request.quantity.toString());
+    final priceController = TextEditingController(text: request.price.toString());
+    final unitController = TextEditingController(text: request.unit ?? 'EA');
+    final linkController = TextEditingController(text: request.link ?? '');
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('재료 신청 수정'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: '품목명',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: quantityController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: '수량',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: unitController,
+                      decoration: const InputDecoration(
+                        labelText: '단위',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: priceController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: '단가 (원)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('총금액'),
+                    StreamBuilder(
+                      stream: Stream.periodic(const Duration(milliseconds: 100)),
+                      builder: (context, snapshot) {
+                        final quantity = int.tryParse(quantityController.text) ?? 0;
+                        final price = int.tryParse(priceController.text) ?? 0;
+                        final total = quantity * price;
+                        return Text(
+                          '${_numberFormat.format(total)}원',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: linkController,
+                decoration: const InputDecoration(
+                  labelText: '구매 링크 (선택)',
+                  hintText: 'https://...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('품목명을 입력해주세요')),
+                );
+                return;
+              }
+              
+              Navigator.pop(context);
+              
+              await MaterialService.updateRequest(
+                request.id,
+                name: nameController.text.trim(),
+                quantity: int.tryParse(quantityController.text) ?? 1,
+                price: int.tryParse(priceController.text) ?? 0,
+                unit: unitController.text.trim(),
+                link: linkController.text.trim(),
+              );
+              
+              _loadRequests();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('신청이 수정되었습니다')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('수정', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _updateStatus(String requestId, String status) async {
-    // 먼저 UI를 즉시 업데이트 (낙관적 업데이트)
     setState(() {
-      // 로컬 데이터에서 해당 항목 찾아서 상태 변경
-      final requestIndex = _allRequests.indexWhere((r) => r.id == requestId);
-      if (requestIndex != -1) {
-        _allRequests[requestIndex] = MaterialRequest(
-          id: _allRequests[requestIndex].id,
-          experimentId: _allRequests[requestIndex].experimentId,
-          quantity: _allRequests[requestIndex].quantity,
-          price: _allRequests[requestIndex].price,
-          createdAt: _allRequests[requestIndex].createdAt,
-          deliveryStatus: status,  // 상태만 변경
-          link: _allRequests[requestIndex].link,
-          name: _allRequests[requestIndex].name,
-          status: _allRequests[requestIndex].status,
-          unit: _allRequests[requestIndex].unit,
-        );
+      final index = _allRequests.indexWhere((r) => r.id == requestId);
+      if (index != -1) {
+        _allRequests[index] = _allRequests[index].copyWith(deliveryStatus: status);
       }
-      _applyFilters();  // 필터 재적용
+      _applyFilters();
     });
 
-    // 백그라운드에서 서버 업데이트
     final success = await MaterialService.updateStatus(requestId, status);
-    
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('상태가 "$status"로 변경되었습니다')),
-      );
-    } else {
-      // 실패하면 다시 로드
+    if (!success) {
       _loadRequests();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -225,6 +339,9 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isPhoneScreen = screenWidth < 600;
+    
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -248,96 +365,186 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
       children: [
         // 상단 필터 바
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isPhoneScreen ? 8 : 16),
           color: Colors.white,
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: '품목명, 실험명으로 검색...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+          child: isPhoneScreen
+              ? Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: '품목명, 실험명으로 검색...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        _searchQuery = value;
+                        _applyFilters();
+                      },
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  onChanged: (value) {
-                    _searchQuery = value;
-                    _applyFilters();
-                  },
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButton<String>(
+                            value: _selectedCourse,
+                            isExpanded: true,
+                            items: courseList.map<DropdownMenuItem<String>>(
+                              (course) => DropdownMenuItem<String>(
+                                value: course,
+                                child: Text(
+                                  course,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                _selectedCourse = value;
+                                _applyFilters();
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButton<String>(
+                            value: _selectedStatus,
+                            isExpanded: true,
+                            items: ['모든 상태', ..._statusOptions]
+                                .map((status) => DropdownMenuItem<String>(
+                                      value: status,
+                                      child: Text(
+                                        status,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                _selectedStatus = value;
+                                _applyFilters();
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: '품목명, 실험명으로 검색...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        onChanged: (value) {
+                          _searchQuery = value;
+                          _applyFilters();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Flexible(
+                      flex: 2,
+                      child: DropdownButton<String>(
+                        value: _selectedCourse,
+                        isExpanded: true,
+                        items: courseList.map<DropdownMenuItem<String>>(
+                          (course) => DropdownMenuItem<String>(
+                            value: course,
+                            child: Text(course),
+                          ),
+                        ).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            _selectedCourse = value;
+                            _applyFilters();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Flexible(
+                      flex: 2,
+                      child: DropdownButton<String>(
+                        value: _selectedStatus,
+                        isExpanded: true,
+                        items: ['모든 상태', ..._statusOptions]
+                            .map((status) => DropdownMenuItem<String>(
+                                  value: status,
+                                  child: Text(status),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            _selectedStatus = value;
+                            _applyFilters();
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 16),
-              DropdownButton<String>(
-                value: _selectedCourse,
-                items: courseList.map<DropdownMenuItem<String>>(
-                  (course) => DropdownMenuItem<String>(
-                    value: course,
-                    child: Text(course),
-                  ),
-                ).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    _selectedCourse = value;
-                    _applyFilters();
-                  }
-                },
-              ),
-              const SizedBox(width: 16),
-              DropdownButton<String>(
-                value: _selectedStatus,
-                items: ['모든 상태', ..._statusOptions]
-                    .map((status) => DropdownMenuItem<String>(
-                          value: status,
-                          child: Text(status),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    _selectedStatus = value;
-                    _applyFilters();
-                  }
-                },
-              ),
-            ],
-          ),
         ),
         
         // 액션 바
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: isPhoneScreen ? 8 : 16,
+            vertical: 8,
+          ),
           color: Colors.grey[100],
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Text('선택: '),
-                  Text('${_selectedIds.length}개 / 총 ${_filteredRequests.length}개'),
-                ],
+              Flexible(
+                child: Text(
+                  '선택: ${_selectedIds.length}/${_filteredRequests.length}',
+                  style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              Row(
-                children: [
-                  Text(
-                    '총 금액: ${_numberFormat.format(totalAmount)}원',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: _loadRequests,
-                  ),
-                  if (_selectedIds.isNotEmpty)
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isPhoneScreen)
+                      Text(
+                        '총: ${_numberFormat.format(totalAmount)}원',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: _deleteSelected,
+                      icon: const Icon(Icons.refresh, size: 20),
+                      onPressed: _loadRequests,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
                     ),
-                ],
+                    if (_selectedIds.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                        onPressed: _deleteSelected,
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -354,30 +561,39 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
                   final experiments = courseEntry.value;
                   final courseExpanded = _expandedCourses.contains(courseTitle);
                   
-                  // 강의별 선택 상태 확인
                   final courseRequests = experiments.values.expand((r) => r).toList();
                   final courseAllSelected = courseRequests.isNotEmpty &&
                       courseRequests.every((r) => _selectedIds.contains(r.id));
                   
                   return Column(
                     children: [
-                      // 강의 헤더
                       Container(
                         color: Colors.blue.shade50,
                         child: ListTile(
+                          dense: isPhoneScreen,
                           leading: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Checkbox(
-                                value: courseAllSelected,
-                                onChanged: (_) => _toggleCourseSelection(courseTitle, experiments),
+                              Transform.scale(
+                                scale: isPhoneScreen ? 0.8 : 1.0,
+                                child: Checkbox(
+                                  value: courseAllSelected,
+                                  onChanged: (_) => _toggleCourseSelection(courseTitle, experiments),
+                                ),
                               ),
-                              Icon(courseExpanded ? Icons.expand_less : Icons.expand_more),
+                              Icon(
+                                courseExpanded ? Icons.expand_less : Icons.expand_more,
+                                size: isPhoneScreen ? 20 : 24,
+                              ),
                             ],
                           ),
                           title: Text(
-                            '📚 $courseTitle (${experiments.length}개 실험)',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            '📚 $courseTitle (${experiments.length}개)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: isPhoneScreen ? 14 : 16,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           onTap: () {
                             setState(() {
@@ -397,33 +613,39 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
                         final experimentKey = '$courseTitle-$experimentTitle';
                         final experimentExpanded = _expandedExperiments.contains(experimentKey);
                         
-                        // 실험별 선택 상태
                         final experimentAllSelected = requests.isNotEmpty &&
                             requests.every((r) => _selectedIds.contains(r.id));
                         
                         return Column(
                           children: [
-                            // 실험 헤더
                             Container(
                               color: Colors.green.shade50,
-                              padding: const EdgeInsets.only(left: 20),
+                              padding: EdgeInsets.only(left: isPhoneScreen ? 10 : 20),
                               child: ListTile(
+                                dense: isPhoneScreen,
                                 leading: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Checkbox(
-                                      value: experimentAllSelected,
-                                      onChanged: (_) => _toggleExperimentSelection(requests),
+                                    Transform.scale(
+                                      scale: isPhoneScreen ? 0.8 : 1.0,
+                                      child: Checkbox(
+                                        value: experimentAllSelected,
+                                        onChanged: (_) => _toggleExperimentSelection(requests),
+                                      ),
                                     ),
                                     Icon(
                                       experimentExpanded ? Icons.expand_less : Icons.expand_more,
-                                      size: 20,
+                                      size: isPhoneScreen ? 18 : 20,
                                     ),
                                   ],
                                 ),
                                 title: Text(
                                   '🧪 $experimentTitle (${requests.length}개)',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: isPhoneScreen ? 13 : 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 onTap: () {
                                   setState(() {
@@ -439,48 +661,78 @@ class _MaterialRequestScreenState extends State<MaterialRequestScreen> {
                             
                             if (experimentExpanded) ...requests.map((request) {
                               return Container(
-                                padding: const EdgeInsets.only(left: 40),
+                                padding: EdgeInsets.only(left: isPhoneScreen ? 20 : 40),
                                 child: ListTile(
-                                  leading: Checkbox(
-                                    value: _selectedIds.contains(request.id),
-                                    onChanged: (_) => _toggleSelect(request.id),
+                                  dense: isPhoneScreen,
+                                  leading: Transform.scale(
+                                    scale: isPhoneScreen ? 0.8 : 1.0,
+                                    child: Checkbox(
+                                      value: _selectedIds.contains(request.id),
+                                      onChanged: (_) => _toggleSelect(request.id),
+                                    ),
                                   ),
-                                  title: Text(request.name),
+                                  title: Text(
+                                    request.name,
+                                    style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                   subtitle: Text(
                                     '${request.quantity}${request.unit ?? 'EA'} | '
-                                    '${_numberFormat.format(request.price)}원 | '
-                                    '합계: ${_numberFormat.format(request.quantity * request.price)}원',
+                                    '${_numberFormat.format(request.price)}원',
+                                    style: TextStyle(fontSize: isPhoneScreen ? 10 : 12),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  trailing: DropdownButton<String>(
-                                    value: request.deliveryStatus ?? '확인요청',
-                                    underline: const SizedBox(),
-                                    items: _statusOptions.map((status) {
-                                      return DropdownMenuItem<String>(
-                                        value: status,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, 
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _getStatusColor(status),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            status,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                            ),
-                                          ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.edit,
+                                          color: Colors.blue,
+                                          size: isPhoneScreen ? 18 : 20,
                                         ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      if (value != null) {
-                                        _updateStatus(request.id, value);
-                                      }
-                                    },
+                                        onPressed: () => _showEditRequestDialog(request),
+                                        padding: const EdgeInsets.all(2),
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                      Container(
+                                        constraints: BoxConstraints(maxWidth: isPhoneScreen ? 100 : 120),
+                                        child: DropdownButton<String>(
+                                          value: request.deliveryStatus ?? '확인요청',
+                                          isExpanded: true,
+                                          isDense: isPhoneScreen,
+                                          underline: const SizedBox(),
+                                          items: _statusOptions.map((status) {
+                                            return DropdownMenuItem<String>(
+                                              value: status,
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: isPhoneScreen ? 4 : 8,
+                                                  vertical: isPhoneScreen ? 2 : 4,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: _getStatusColor(status),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  status,
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: isPhoneScreen ? 10 : 12,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              _updateStatus(request.id, value);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               );

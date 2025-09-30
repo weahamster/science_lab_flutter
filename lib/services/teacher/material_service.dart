@@ -79,4 +79,24 @@ class MaterialService {
       return false;
     }
   }
+
+  static Future<void> updateRequest(
+    String id, {
+    required String name,
+    required int quantity,
+    required int price,
+    required String unit,
+    String? link,
+  }) async {
+    await _supabase
+        .from('material_requests')
+        .update({
+          'name': name,
+          'quantity': quantity,
+          'price': price,
+          'unit': unit,
+          'link': link,
+        })
+        .eq('id', id);
+  }
 }  // 클래스 중괄호 닫기

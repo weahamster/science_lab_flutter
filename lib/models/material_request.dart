@@ -50,4 +50,31 @@ class MaterialRequest {
     'status': status,
     'unit': unit,
   };
+  
+  // copyWith 메서드 추가
+  MaterialRequest copyWith({
+    String? id,
+    String? experimentId,
+    int? quantity,
+    int? price,
+    DateTime? createdAt,
+    String? deliveryStatus,
+    String? link,
+    String? name,
+    String? status,
+    String? unit,
+  }) {
+    return MaterialRequest(
+      id: id ?? this.id,
+      experimentId: experimentId ?? this.experimentId,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
+      createdAt: createdAt ?? this.createdAt,
+      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+      link: link ?? this.link,
+      name: name ?? this.name,
+      status: status ?? this.status,
+      unit: unit ?? this.unit,
+    );
+  }
 }

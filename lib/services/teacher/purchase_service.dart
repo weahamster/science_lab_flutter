@@ -3,11 +3,12 @@ import '../../models/purchase_item.dart';
 
 class PurchaseService {
   static final _supabase = Supabase.instance.client;
+  static const _table = 'teacher_purchase_materials'; // 테이블명 상수화
   
   static Future<List<PurchaseItem>> getPurchaseItems() async {
     try {
       final response = await _supabase
-          .from('teacher_purchase_materials')
+          .from(_table)
           .select()
           .order('created_at', ascending: false);
       
@@ -30,10 +31,11 @@ class PurchaseService {
         'unit': item.unit,
         'price': item.price,
         'link': item.link.isEmpty ? null : item.link,
+        'created_at': DateTime.now().toIso8601String(),
       };
       
       final response = await _supabase
-          .from('teacher_purchase_materials')
+          .from(_table)
           .insert(data)
           .select()
           .single();
@@ -45,10 +47,28 @@ class PurchaseService {
     }
   }
   
+  static Future<void> updatePurchaseItem(PurchaseItem item) async {
+    try {
+      await _supabase
+          .from(_table)  // ✅ 올바른 테이블명
+          .update({
+            'name': item.name,
+            'quantity': item.quantity,
+            'unit': item.unit,
+            'price': item.price,
+            'link': item.link.isEmpty ? null : item.link,
+          })
+          .eq('id', item.id);
+    } catch (e) {
+      print('Error updating purchase item: $e');
+      throw e;
+    }
+  }
+  
   static Future<bool> deletePurchaseItem(String id) async {
     try {
       await _supabase
-          .from('teacher_purchase_materials')
+          .from(_table)
           .delete()
           .eq('id', id);
       return true;
