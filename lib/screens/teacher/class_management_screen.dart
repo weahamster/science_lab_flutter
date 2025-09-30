@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/course_service.dart';
+import '../../services/teacher/course_service.dart';  // 경로 수정
 
 class ClassManagementScreen extends StatefulWidget {
   const ClassManagementScreen({super.key});

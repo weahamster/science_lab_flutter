@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/purchase_item.dart';
+import '../../models/purchase_item.dart';
 
 class PurchaseService {
   static final _supabase = Supabase.instance.client;

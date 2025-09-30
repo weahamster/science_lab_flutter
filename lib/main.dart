@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/login_screen.dart';
+import 'screens/common/login_screen.dart';  // 경로 수정
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

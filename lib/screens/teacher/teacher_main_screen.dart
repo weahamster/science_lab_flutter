@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'login_screen.dart';
-import 'dashboard_screen.dart';
-import 'purchase/purchase_screen.dart';
-import 'class_management/class_management_screen.dart';
-import 'material_request/material_request_screen.dart';
-import 'item_management/item_management_screen.dart';
-import 'equipment_management/equipment_management_screen.dart';
+import '../common/login_screen.dart';
+import 'teacher_dashboard_screen.dart';  // 경로 수정
+import 'purchase_screen.dart';  // 경로 수정
+import 'class_management_screen.dart';  // 경로 수정
+import 'material_request_screen.dart';  // 경로 수정
+import 'item_management_screen.dart';  // 경로 수정
+import 'equipment_management_screen.dart';  // 경로 수정
 
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+class TeacherMainScreen extends StatefulWidget {
+  const TeacherMainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<TeacherMainScreen> createState() => _TeacherMainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _TeacherMainScreenState extends State<TeacherMainScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _currentTitle = '대시보드';
-  Widget _currentScreen = DashboardScreen();  // const 제거
+  Widget _currentScreen = const TeacherDashboardScreen();
 
   void _selectMenu(String title, Widget screen) {
     setState(() {
@@ -128,7 +128,7 @@ class _MainScreenState extends State<MainScreen> {
                     _buildMenuItem(
                       icon: Icons.home,
                       title: '대시보드',
-                      onTap: () => _selectMenu('대시보드', DashboardScreen()),  // const 제거
+                      onTap: () => _selectMenu('대시보드', TeacherDashboardScreen()),  // const 제거
                       isSelected: _currentTitle == '대시보드',
                     ),
                     _buildMenuItem(

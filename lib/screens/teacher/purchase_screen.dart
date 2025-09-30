@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/purchase_item.dart';
-import '../../services/purchase_service.dart';
+import '../../services/teacher/purchase_service.dart';
 
 class PurchaseScreen extends StatefulWidget {
   const PurchaseScreen({super.key});
