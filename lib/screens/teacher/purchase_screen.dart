@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../models/purchase_item.dart';
 import '../../services/teacher/purchase_service.dart';
 
@@ -12,7 +13,10 @@ class PurchaseScreen extends StatefulWidget {
 
 class _PurchaseScreenState extends State<PurchaseScreen> {
   final List<PurchaseItem> _items = [];
+  final Set<String> _selectedIds = {};
   bool _isLoading = false;
+  bool _selectAll = false;
+  final _numberFormat = NumberFormat('#,###');
   
   @override
   void initState() {
@@ -36,6 +40,65 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  void _toggleSelectAll(bool? value) {
+    setState(() {
+      _selectAll = value ?? false;
+      if (_selectAll) {
+        _selectedIds.addAll(_items.map((item) => item.id));
+      } else {
+        _selectedIds.clear();
+      }
+    });
+  }
+
+  void _toggleSelect(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+      _selectAll = _selectedIds.length == _items.length;
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selectedIds.isEmpty) return;
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('삭제 확인'),
+        content: Text('선택한 ${_selectedIds.length}개 항목을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm == true) {
+      for (String id in _selectedIds) {
+        await PurchaseService.deletePurchaseItem(id);
+      }
+      setState(() {
+        _items.removeWhere((item) => _selectedIds.contains(item.id));
+        _selectedIds.clear();
+        _selectAll = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('선택한 항목이 삭제되었습니다')),
+      );
     }
   }
   
@@ -68,31 +131,15 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 물품명 - 한글 입력 수정
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: '물품명',
-                          hintText: '예: 비커 1000ml',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.all(12),
-                        ),
-                        keyboardType: TextInputType.text,
-                        textInputAction: TextInputAction.done,
-                        maxLines: 1,
-                        onChanged: (value) {
-                          setDialogState(() {});
-                        },
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: '물품명',
+                        hintText: '예: 비커 1000ml',
+                        border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // 수량과 단위
                     Row(
                       children: [
                         Expanded(
@@ -133,8 +180,6 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
-                    // 단가
                     TextField(
                       controller: priceController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: false),
@@ -146,13 +191,10 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                       onChanged: (_) => calculateTotal(),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // 총금액
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
-                        border: Border.all(color: Colors.grey),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
@@ -160,7 +202,7 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                         children: [
                           const Text('총금액'),
                           Text(
-                            '$totalPrice원',
+                            '${_numberFormat.format(totalPrice)}원',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -170,8 +212,6 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // 링크
                     TextField(
                       controller: linkController,
                       decoration: const InputDecoration(
@@ -187,9 +227,7 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                },
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('취소'),
               ),
               ElevatedButton(
@@ -202,31 +240,27 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                   }
                   
                   Navigator.of(dialogContext).pop();
-                  setState(() => _isLoading = true);
                   
-                  try {
-                    await _addItem(
-                      nameController.text.trim(),
-                      int.tryParse(quantityController.text) ?? 1,
-                      selectedUnit,
-                      int.tryParse(priceController.text) ?? 0,
-                      linkController.text.trim(),
-                    );
-                    
+                  final newItem = PurchaseItem(
+                    id: '',
+                    name: nameController.text.trim(),
+                    quantity: int.tryParse(quantityController.text) ?? 1,
+                    unit: selectedUnit,
+                    price: int.tryParse(priceController.text) ?? 0,
+                    link: linkController.text.trim(),
+                  );
+                  
+                  final savedItem = await PurchaseService.addPurchaseItem(newItem);
+                  if (savedItem != null) {
+                    setState(() {
+                      _items.insert(0, savedItem);
+                    });
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('물품이 추가되었습니다')),
                     );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('추가 실패: $e')),
-                    );
-                  } finally {
-                    setState(() => _isLoading = false);
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                 child: const Text('추가', style: TextStyle(color: Colors.white)),
               ),
             ],
@@ -236,155 +270,152 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     );
   }
   
-  Future<void> _addItem(String name, int quantity, String unit, int price, String link) async {
-    final newItem = PurchaseItem(
-      id: '',
-      name: name,
-      quantity: quantity,
-      unit: unit,
-      price: price,
-      link: link,
-    );
-    
-    final savedItem = await PurchaseService.addPurchaseItem(newItem);
-    if (savedItem != null && mounted) {
-      setState(() {
-        _items.insert(0, savedItem);
-      });
-    } else {
-      throw Exception('저장 실패');
-    }
-  }
-  
-  Future<void> _deleteItem(String itemId) async {
-    final success = await PurchaseService.deletePurchaseItem(itemId);
-    if (success) {
-      setState(() {
-        _items.removeWhere((item) => item.id == itemId);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('삭제되었습니다')),
-      );
-    }
-  }
-  
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
     
+    final totalAmount = _items.fold(0, (sum, item) => sum + item.totalPrice);
+    
     return Column(
       children: [
+        // 상단 요약 정보
         Container(
           width: double.infinity,
-          margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 1,
-                blurRadius: 5,
+          color: Colors.white,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '물품 구입 신청',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '총 금액: ${_numberFormat.format(totalAmount)}원',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        
+        // 액션 바
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.grey[100],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.add_circle_outline, color: Colors.blue),
-                  SizedBox(width: 8),
-                  Text(
-                    '물품 구입 신청',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Checkbox(
+                    value: _selectAll,
+                    onChanged: _toggleSelectAll,
                   ),
+                  Text('전체 선택 (${_selectedIds.length}/${_items.length})'),
                 ],
               ),
-              const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '구입 목록: ${_items.length}개',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  Text(
-                    '총액: ${_items.fold(0, (sum, item) => sum + item.totalPrice).toString()}원',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                  ElevatedButton.icon(
+                    onPressed: _showAddItemDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text('물품 추가'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  if (_selectedIds.isNotEmpty)
+                    ElevatedButton.icon(
+                      onPressed: _deleteSelected,
+                      icon: const Icon(Icons.delete),
+                      label: Text('선택 삭제 (${_selectedIds.length})'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
                 ],
               ),
             ],
           ),
         ),
         
+        // 테이블
         Expanded(
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            color: Colors.white,
             child: _items.isEmpty
                 ? const Center(
                     child: Text('물품을 추가해주세요', style: TextStyle(color: Colors.grey)),
                   )
-                : ListView.builder(
-                    itemCount: _items.length,
-                    itemBuilder: (context, index) {
-                      final item = _items[index];
-                      return Card(
-                        margin: const EdgeInsets.all(8),
-                        child: ListTile(
-                          title: Text(
-                            item.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('수량: ${item.quantity} ${item.unit}'),
-                              Text('단가: ${item.price}원 | 총액: ${item.totalPrice}원'),
-                              if (item.link.isNotEmpty)
-                                Text(
-                                  '링크: ${item.link}',
-                                  style: const TextStyle(color: Colors.blue),
-                                  overflow: TextOverflow.ellipsis,
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                        headingRowColor: MaterialStateProperty.all(Colors.grey[100]),
+                        columns: const [
+                          DataColumn(label: Text('')),
+                          DataColumn(label: Text('물품명')),
+                          DataColumn(label: Text('수량')),
+                          DataColumn(label: Text('단가')),
+                          DataColumn(label: Text('총액')),
+                          DataColumn(label: Text('링크')),
+                          DataColumn(label: Text('작업')),
+                        ],
+                        rows: _items.map((item) {
+                          return DataRow(
+                            selected: _selectedIds.contains(item.id),
+                            cells: [
+                              DataCell(
+                                Checkbox(
+                                  value: _selectedIds.contains(item.id),
+                                  onChanged: (_) => _toggleSelect(item.id),
                                 ),
+                              ),
+                              DataCell(Text(item.name)),
+                              DataCell(Text('${item.quantity} ${item.unit}')),
+                              DataCell(Text('${_numberFormat.format(item.price)}원')),
+                              DataCell(
+                                Text(
+                                  '${_numberFormat.format(item.totalPrice)}원',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              DataCell(
+                                item.link.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.link, color: Colors.blue),
+                                        onPressed: () {
+                                          // 링크 열기 기능
+                                        },
+                                      )
+                                    : const Text('-'),
+                              ),
+                              DataCell(
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                  onPressed: () async {
+                                    await PurchaseService.deletePurchaseItem(item.id);
+                                    setState(() {
+                                      _items.removeWhere((i) => i.id == item.id);
+                                    });
+                                  },
+                                ),
+                              ),
                             ],
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            onPressed: () => _deleteItem(item.id),
-                          ),
-                        ),
-                      );
-                    },
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   ),
-          ),
-        ),
-        
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _showAddItemDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('물품 추가'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-            ),
           ),
         ),
       ],
