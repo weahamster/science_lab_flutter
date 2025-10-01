@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/teacher/course_service.dart';
+import '../../services/teacher/class_service.dart';
+import '../../models/course.dart';  // 세미콜론 추가!
 
 class ClassManagementScreen extends StatefulWidget {
   const ClassManagementScreen({super.key});
@@ -9,8 +10,8 @@ class ClassManagementScreen extends StatefulWidget {
 }
 
 class _ClassManagementScreenState extends State<ClassManagementScreen> {
-  List<Map<String, dynamic>> _courses = [];
-  List<Map<String, dynamic>> _filteredCourses = [];
+  List<Course> _courses = [];
+  List<Course> _filteredCourses = [];
   Set<String> _selectedIds = {};
   bool _isLoading = false;
   String _searchQuery = '';
@@ -24,7 +25,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
   Future<void> _loadCourses() async {
     setState(() => _isLoading = true);
     try {
-      final courses = await CourseService.getCourses();
+      final courses = await ClassService.getCourses();
       setState(() {
         _courses = courses;
         _applyFilter();
@@ -47,15 +48,12 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
       } else {
         final query = _searchQuery.toLowerCase();
         _filteredCourses = _courses.where((course) {
-          final name = (course['name'] ?? '').toLowerCase();
-          final title = (course['title'] ?? '').toLowerCase();
-          final className = (course['class'] ?? '').toLowerCase();
-          final grade = (course['grade'] ?? '').toLowerCase();
-          final description = (course['description'] ?? '').toLowerCase();
-          return name.contains(query) ||
-                 title.contains(query) ||
+          final title = course.title.toLowerCase();
+          final className = (course.className ?? '').toLowerCase();
+          final description = (course.description ?? '').toLowerCase();
+          
+          return title.contains(query) ||
                  className.contains(query) ||
-                 grade.contains(query) ||
                  description.contains(query);
         }).toList();
       }
@@ -76,7 +74,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
     setState(() {
       if (value ?? false) {
         _selectedIds = _filteredCourses
-            .map((c) => c['id'].toString())
+            .map((c) => c.id)
             .toSet();
       } else {
         _selectedIds.clear();
@@ -109,7 +107,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
     if (confirm == true) {
       try {
         for (String id in _selectedIds) {
-          await CourseService.deleteCourse(id);
+          await ClassService.deleteCourse(id);
         }
         setState(() {
           _selectedIds.clear();
@@ -204,7 +202,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
   Future<void> _addCourse(String name, String grade, String description) async {
     setState(() => _isLoading = true);
     try {
-      await CourseService.addCourse(name, grade, description);
+      await ClassService.addCourse(name, grade, description);
       await _loadCourses();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -222,10 +220,10 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
     }
   }
 
-  void _showEditCourseDialog(Map<String, dynamic> course) {
-    final nameController = TextEditingController(text: course['name'] ?? course['title']);
-    final gradeController = TextEditingController(text: course['grade'] ?? course['class'] ?? '');
-    final descriptionController = TextEditingController(text: course['description'] ?? '');
+  void _showEditCourseDialog(Course course) {
+    final nameController = TextEditingController(text: course.title);
+    final gradeController = TextEditingController(text: course.className ?? '');
+    final descriptionController = TextEditingController(text: course.description ?? '');
 
     showDialog(
       context: context,
@@ -271,7 +269,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
             onPressed: () async {
               Navigator.pop(context);
               await _updateCourse(
-                course['id'].toString(),
+                course.id,
                 nameController.text.trim(),
                 gradeController.text.trim(),
                 descriptionController.text.trim(),
@@ -289,7 +287,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
 
   Future<void> _updateCourse(String id, String name, String grade, String description) async {
     try {
-      await CourseService.updateCourse(id, name, grade, description);
+      await ClassService.updateCourse(id, name, grade, description);
       await _loadCourses();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -329,7 +327,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
 
     if (confirm == true) {
       try {
-        await CourseService.deleteCourse(id);
+        await ClassService.deleteCourse(id);
         await _loadCourses();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -484,7 +482,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
           ),
         ),
         
-        // 테이블 - 모든 기기에서 동일하게
+        // 테이블
         Expanded(
           child: _filteredCourses.isEmpty
               ? Center(
@@ -508,32 +506,27 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
                           style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
                         DataColumn(label: Text('반', 
                           style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
-                        DataColumn(label: Text('학생', 
-                          style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
                         DataColumn(label: Text('설명', 
                           style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
                         DataColumn(label: Text('작업', 
                           style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
                       ],
                       rows: _filteredCourses.map((course) {
-                        final id = course['id'].toString();
-                        final studentCount = course['student_count'] ?? 0;
-                        
                         return DataRow(
-                          selected: _selectedIds.contains(id),
+                          selected: _selectedIds.contains(course.id),
                           cells: [
                             DataCell(
                               Transform.scale(
                                 scale: isPhoneScreen ? 0.8 : 1.0,
                                 child: Checkbox(
-                                  value: _selectedIds.contains(id),
-                                  onChanged: (_) => _toggleSelect(id),
+                                  value: _selectedIds.contains(course.id),
+                                  onChanged: (_) => _toggleSelect(course.id),
                                 ),
                               ),
                             ),
                             DataCell(
                               Text(
-                                course['title'] ?? course['name'] ?? '',
+                                course.title,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: isPhoneScreen ? 12 : 14,
@@ -541,11 +534,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
                               ),
                             ),
                             DataCell(Text(
-                              course['class'] ?? course['grade'] ?? '',
-                              style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
-                            )),
-                            DataCell(Text(
-                              '$studentCount명',
+                              course.className ?? '',
                               style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
                             )),
                             DataCell(
@@ -554,7 +543,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
                                   maxWidth: isPhoneScreen ? 100 : 200,
                                 ),
                                 child: Text(
-                                  course['description'] ?? '',
+                                  course.description ?? '',
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
                                 ),
@@ -578,7 +567,7 @@ class _ClassManagementScreenState extends State<ClassManagementScreen> {
                                       color: Colors.red,
                                       size: isPhoneScreen ? 18 : 20,
                                     ),
-                                    onPressed: () => _deleteCourse(id),
+                                    onPressed: () => _deleteCourse(course.id),
                                     padding: const EdgeInsets.all(2),
                                     constraints: const BoxConstraints(),
                                   ),

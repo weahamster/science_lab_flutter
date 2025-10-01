@@ -1,49 +1,66 @@
-/// Supabase 테이블 스키마 문서
-/// 웹과 앱이 공유하는 데이터베이스 구조
-/// 
-/// 용도:
-/// 1. 개발 중 테이블 구조 참조
-/// 2. 웹 개발팀과 스키마 공유
-/// 3. 타입 검증 및 문서화
-
 class DatabaseSchema {
-  // school_inventory 테이블 컬럼
+  // school_inventory 테이블 (물품관리) ✅
   static const schoolInventoryColumns = [
-    'remarks', 
-    'created_at', 
-    'updated_at', 
-    'quantity', 
-    'unit', 
-    'location', 
-    'max_loan', 
-    'id', 
-    'school_id', 
-    'name'
-  ];
-  
-  // material_requests 테이블 컬럼
-  static const materialRequestsColumns = [
-    'experiment_id',
-    'price', 
-    'unit',
-    'quantity',
-    'name',
     'id',
-    'delivery_status',
+    'school_id',
+    'name',
+    'quantity',
+    'unit',
+    'location',
+    'remarks',
+    'max_loan',
     'created_at',
-    'status',
-    'link'
+    'updated_at'
   ];
   
-  // courses 테이블 컬럼
+  // material_requests 테이블 (재료신청관리) ✅
+  static const materialRequestsColumns = [
+    'id',
+    'experiment_id',
+    'name',
+    'quantity',
+    'unit',
+    'price',
+    'link',
+    'status',
+    'delivery_status',
+    'created_at'
+  ];
+  
+  // courses 테이블 (강의관리)
   static const coursesColumns = [
     'id',
-    'description',
-    'created_at',
-    'is_active',
-    'class',
     'school_id',
     'teacher_id',
-    'title'
+    'title',
+    'class',
+    'description',
+    'is_active',
+    'created_at'
+  ];
+  
+  // ⭐ 추가 필요
+  // teacher_purchase_materials 테이블 (구매 자재)
+  static const teacherPurchaseMaterialsColumns = [
+    'id',
+    'purchase_request_id',  // ⭐ 중요: 요청 ID 연결
+    'name',
+    'quantity',
+    'unit',
+    'price',
+    'link',
+    'created_at'
+  ];
+  
+  // teacher_purchase_requests 테이블 (구매 요청)
+  static const teacherPurchaseRequestsColumns = [
+    'id',
+    'teacher_id',
+    'school_id',
+    'purpose',
+    'status',
+    'total_amount',
+    'created_at',
+    'updated_at'
   ];
 }
