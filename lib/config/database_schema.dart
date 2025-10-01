@@ -27,7 +27,7 @@ class DatabaseSchema {
     'created_at'
   ];
   
-  // courses 테이블 (강의관리)
+  // courses 테이블 (강의관리) ✅
   static const coursesColumns = [
     'id',
     'school_id',
@@ -39,11 +39,28 @@ class DatabaseSchema {
     'created_at'
   ];
   
-  // ⭐ 추가 필요
+  // ⭐ equipment 테이블 (기자재관리) - 새로 추가
+  static const equipmentColumns = [
+    'id',
+    'school_id',
+    'name',
+    'category',
+    'description',
+    'quantity',
+    'location',
+    'status',
+    'serial_number',
+    'model',
+    'notes',
+    'qr_code',
+    'image_url',
+    'created_at'
+  ];
+  
   // teacher_purchase_materials 테이블 (구매 자재)
   static const teacherPurchaseMaterialsColumns = [
     'id',
-    'purchase_request_id',  // ⭐ 중요: 요청 ID 연결
+    'purchase_request_id',
     'name',
     'quantity',
     'unit',

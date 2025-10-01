@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../common/login_screen.dart';
-import 'teacher_dashboard_screen.dart';  // 경로 수정
-import 'purchase_screen.dart';  // 경로 수정
-import 'class_management_screen.dart';  // 경로 수정
-import 'material_request_screen.dart';  // 경로 수정
-import 'item_management_screen.dart';  // 경로 수정
-import 'equipment_management_screen.dart';  // 경로 수정
+import 'teacher_dashboard_screen.dart';
+import 'purchase_screen.dart';
+import 'class_management_screen.dart';
+import 'material_request_screen.dart';
+import 'item_management_screen.dart';
+import 'equipment_management_screen.dart';
 
 class TeacherMainScreen extends StatefulWidget {
   const TeacherMainScreen({super.key});
@@ -18,7 +18,42 @@ class TeacherMainScreen extends StatefulWidget {
 class _TeacherMainScreenState extends State<TeacherMainScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _currentTitle = '대시보드';
-  Widget _currentScreen = const TeacherDashboardScreen();
+  late Widget _currentScreen;
+  
+  @override
+  void initState() {
+    super.initState();
+    _initializeDashboard();
+  }
+  
+  void _initializeDashboard() {
+    _currentScreen = TeacherDashboardScreen(
+      onMenuSelect: _handleMenuSelection,
+    );
+  }
+  
+  void _handleMenuSelection(String title) {
+    setState(() {
+      _currentTitle = title;
+      switch (title) {
+        case '물품 구입':
+          _currentScreen = PurchaseScreen();
+          break;
+        case '강의 관리':
+          _currentScreen = ClassManagementScreen();
+          break;
+        case '재료 신청 관리':
+          _currentScreen = MaterialRequestScreen();
+          break;
+        case '물품 관리':
+          _currentScreen = ItemManagementScreen();
+          break;
+        case '기자재 관리':
+          _currentScreen = EquipmentManagementScreen();
+          break;
+      }
+    });
+  }
 
   void _selectMenu(String title, Widget screen) {
     setState(() {
@@ -128,37 +163,41 @@ class _TeacherMainScreenState extends State<TeacherMainScreen> {
                     _buildMenuItem(
                       icon: Icons.home,
                       title: '대시보드',
-                      onTap: () => _selectMenu('대시보드', TeacherDashboardScreen()),  // const 제거
+                      onTap: () {
+                        _selectMenu('대시보드', TeacherDashboardScreen(
+                          onMenuSelect: _handleMenuSelection,
+                        ));
+                      },
                       isSelected: _currentTitle == '대시보드',
                     ),
                     _buildMenuItem(
                       icon: Icons.shopping_cart,
                       title: '물품 구입',
-                      onTap: () => _selectMenu('물품 구입', PurchaseScreen()),  // const 제거
+                      onTap: () => _selectMenu('물품 구입', PurchaseScreen()),
                       isSelected: _currentTitle == '물품 구입',
                     ),
                     _buildMenuItem(
                       icon: Icons.school,
                       title: '강의 관리',
-                      onTap: () => _selectMenu('강의 관리', ClassManagementScreen()),  // const 제거
+                      onTap: () => _selectMenu('강의 관리', ClassManagementScreen()),
                       isSelected: _currentTitle == '강의 관리',
                     ),
                     _buildMenuItem(
                       icon: Icons.inbox,
                       title: '재료 신청 관리',
-                      onTap: () => _selectMenu('재료 신청 관리', MaterialRequestScreen()),  // const 제거
+                      onTap: () => _selectMenu('재료 신청 관리', MaterialRequestScreen()),
                       isSelected: _currentTitle == '재료 신청 관리',
                     ),
                     _buildMenuItem(
                       icon: Icons.inventory,
                       title: '물품 관리',
-                      onTap: () => _selectMenu('물품 관리', ItemManagementScreen()),  // const 제거
+                      onTap: () => _selectMenu('물품 관리', ItemManagementScreen()),
                       isSelected: _currentTitle == '물품 관리',
                     ),
                     _buildMenuItem(
                       icon: Icons.settings,
                       title: '기자재 관리',
-                      onTap: () => _selectMenu('기자재 관리', EquipmentManagementScreen()),  // const 제거
+                      onTap: () => _selectMenu('기자재 관리', EquipmentManagementScreen()),
                       isSelected: _currentTitle == '기자재 관리',
                     ),
                     
