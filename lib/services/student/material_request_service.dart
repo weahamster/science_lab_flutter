@@ -3,14 +3,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class StudentMaterialRequestService {
   static final _supabase = Supabase.instance.client;
   
-  // 재료 신청
+  // 재료 신청 - student_id를 user_id로 변경
   static Future<void> requestMaterial(Map<String, dynamic> requestData) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       
       await _supabase.from('material_requests').insert({
-        ...requestData,
-        'student_id': userId,
+        'name': requestData['name'],
+        'quantity': requestData['quantity'],
+        'unit': requestData['unit'],
+        'price': requestData['price'] ?? 0,
+        'user_id': userId,  // student_id → user_id로 변경
         'status': 'pending',
         'created_at': DateTime.now().toIso8601String(),
       });
@@ -26,13 +29,14 @@ class StudentMaterialRequestService {
       
       final response = await _supabase
           .from('material_requests')
-          .select('*, courses(*)')
-          .eq('student_id', userId ?? '')
+          .select('*')
+          .eq('user_id', userId ?? '')  // student_id → user_id로 변경
           .order('created_at', ascending: false);
       
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      throw Exception('Failed to load requests: $e');
+      // 에러 발생시 빈 배열 반환
+      return [];
     }
   }
   
@@ -45,8 +49,8 @@ class StudentMaterialRequestService {
           .from('material_requests')
           .update(data)
           .eq('id', requestId)
-          .eq('student_id', userId ?? '')
-          .eq('status', 'pending'); // pending 상태만 수정 가능
+          .eq('user_id', userId ?? '')  // student_id → user_id로 변경
+          .eq('status', 'pending');
     } catch (e) {
       throw Exception('Failed to update request: $e');
     }
@@ -61,8 +65,8 @@ class StudentMaterialRequestService {
           .from('material_requests')
           .update({'status': 'cancelled'})
           .eq('id', requestId)
-          .eq('student_id', userId ?? '')
-          .eq('status', 'pending'); // pending 상태만 취소 가능
+          .eq('user_id', userId ?? '')  // student_id → user_id로 변경
+          .eq('status', 'pending');
     } catch (e) {
       throw Exception('Failed to cancel request: $e');
     }

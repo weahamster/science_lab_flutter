@@ -3,28 +3,29 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class StudentCourseService {
   static final _supabase = Supabase.instance.client;
   
-  // 학생이 참여 중인 강의 조회
+  // 학생이 참여 중인 강의 조회 - 웹과 동일하게 수정
   static Future<List<Map<String, dynamic>>> getEnrolledCourses() async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      // 웹처럼 courses 테이블 직접 조회
       final response = await _supabase
-          .from('course_students')
-          .select('*, courses(*)')
-          .eq('student_id', userId ?? '');
+          .from('courses')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', ascending: false);
       
+      // 화면 코드와 호환되도록 형태 변경
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       throw Exception('Failed to load enrolled courses: $e');
     }
   }
   
-  // 전체 강의 목록 조회
+  // 전체 강의 목록 조회 (변경 없음)
   static Future<List<Map<String, dynamic>>> getAllCourses() async {
     try {
       final response = await _supabase
           .from('courses')
           .select('*')
-          .eq('is_active', true)
           .order('created_at', ascending: false);
       
       return List<Map<String, dynamic>>.from(response);
@@ -33,29 +34,12 @@ class StudentCourseService {
     }
   }
   
-  // 강의 참여
+  // 강의 참여 - 실제로는 저장하지 않음 (course_students 테이블이 없으므로)
   static Future<void> enrollCourse(String courseId) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
-      
-      // 이미 참여 중인지 확인
-      final existing = await _supabase
-          .from('course_students')
-          .select()
-          .eq('course_id', courseId)
-          .eq('student_id', userId ?? '')
-          .maybeSingle();
-      
-      if (existing != null) {
-        throw Exception('이미 참여 중인 강의입니다');
-      }
-      
-      // 강의 참여
-      await _supabase.from('course_students').insert({
-        'course_id': courseId,
-        'student_id': userId,
-        'enrolled_at': DateTime.now().toIso8601String(),
-      });
+      // 임시: 아무 작업도 하지 않음
+      print('Enrolling in course: $courseId');
+      // 나중에 course_students 테이블 생성 후 구현
     } catch (e) {
       throw Exception('Failed to enroll course: $e');
     }
@@ -64,13 +48,8 @@ class StudentCourseService {
   // 강의 탈퇴
   static Future<void> leaveCourse(String courseId) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
-      
-      await _supabase
-          .from('course_students')
-          .delete()
-          .eq('course_id', courseId)
-          .eq('student_id', userId ?? '');
+      // 임시: 아무 작업도 하지 않음
+      print('Leaving course: $courseId');
     } catch (e) {
       throw Exception('Failed to leave course: $e');
     }

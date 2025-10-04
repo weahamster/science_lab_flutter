@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/student/search_service.dart';
 
 class EquipmentSearchScreen extends StatefulWidget {
   const EquipmentSearchScreen({super.key});
@@ -9,16 +9,18 @@ class EquipmentSearchScreen extends StatefulWidget {
 }
 
 class _EquipmentSearchScreenState extends State<EquipmentSearchScreen> {
-  final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _equipment = [];
   List<Map<String, dynamic>> _filteredEquipment = [];
   String _searchQuery = '';
   bool _isLoading = true;
   
   // 통계
-  int _totalEquipment = 0;
-  int _availableCount = 0;
-  int _repairCount = 0;
+  Map<String, int> _statistics = {
+    'total': 0,
+    'normal': 0,
+    'repair': 0,
+    'broken': 0,
+  };
 
   @override
   void initState() {
@@ -29,22 +31,16 @@ class _EquipmentSearchScreenState extends State<EquipmentSearchScreen> {
   Future<void> _loadEquipment() async {
     setState(() => _isLoading = true);
     try {
-      final response = await _supabase
-          .from('equipment')
-          .select('*')
-          .order('name');
-      
-      final equipmentList = List<Map<String, dynamic>>.from(response);
+      final equipment = await StudentSearchService.searchEquipment();
+      final stats = await StudentSearchService.getEquipmentStatistics();
       
       setState(() {
-        _equipment = equipmentList;
-        _totalEquipment = equipmentList.length;
-        _availableCount = equipmentList.where((e) => e['status'] == 'normal').length;
-        _repairCount = equipmentList.where((e) => e['status'] == 'repair').length;
+        _equipment = equipment;
+        _statistics = stats;
         _applyFilter();
       });
     } catch (e) {
-      print('Error loading equipment: $e');
+      _showError('기자재 목록을 불러올 수 없습니다');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -59,6 +55,14 @@ class _EquipmentSearchScreenState extends State<EquipmentSearchScreen> {
             item['location'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     });
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   String _getStatusText(String? status) {
@@ -187,29 +191,61 @@ class _EquipmentSearchScreenState extends State<EquipmentSearchScreen> {
           color: Colors.white,
           child: Column(
             children: [
-              TextField(
-                decoration: InputDecoration(
-                  hintText: '기자재명, 모델명 또는 위치로 검색...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onChanged: (value) {
-                  _searchQuery = value;
-                  _applyFilter();
-                },
-              ),
-              const SizedBox(height: 12),
-              // 통계
               Row(
                 children: [
-                  _buildStatCard('전체 기자재', '$_totalEquipment개', Colors.purple),
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: '기자재명, 모델명 또는 위치로 검색...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        _searchQuery = value;
+                        _applyFilter();
+                      },
+                    ),
+                  ),
                   const SizedBox(width: 8),
-                  _buildStatCard('총 수량', '${_availableCount}개', Colors.blue),
-                  const SizedBox(width: 8),
-                  _buildStatCard('보관 위치', '3곳', Colors.green),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: _loadEquipment,
+                      tooltip: '새로고침',
+                    ),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              // 통계 카드
+              Row(
+                children: [
+                  _buildStatCard('전체', '${_statistics['total']}개', Colors.purple),
+                  const SizedBox(width: 8),
+                  _buildStatCard('정상', '${_statistics['normal']}개', Colors.green),
+                  const SizedBox(width: 8),
+                  _buildStatCard('수리중', '${_statistics['repair']}개', Colors.orange),
+                ],
+              ),
+            ],
+          ),
+        ),
+        
+        // 정보 표시
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.grey[100],
+          child: Row(
+            children: [
+              Text(
+                '검색 결과: ${_filteredEquipment.length}개',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -263,6 +299,9 @@ class _EquipmentSearchScreenState extends State<EquipmentSearchScreen> {
                             decoration: BoxDecoration(
                               color: Colors.grey[200],
                               borderRadius: BorderRadius.circular(4),
+                              border: item['image_url'] != null 
+                                  ? Border.all(color: Colors.blue.withOpacity(0.3))
+                                  : null,
                             ),
                             child: item['image_url'] != null
                                 ? Stack(

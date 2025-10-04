@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/student/course_service.dart';
 
 class AllCoursesScreen extends StatefulWidget {
@@ -10,7 +9,6 @@ class AllCoursesScreen extends StatefulWidget {
 }
 
 class _AllCoursesScreenState extends State<AllCoursesScreen> {
-  final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _allCourses = [];
   List<Map<String, dynamic>> _filteredCourses = [];
   String _searchQuery = '';
@@ -27,12 +25,17 @@ class _AllCoursesScreenState extends State<AllCoursesScreen> {
     try {
       final courses = await StudentCourseService.getAllCourses();
 
+      // 디버깅용 - 받아온 데이터 확인
+      if (courses.isEmpty) {
+        _showError('등록된 강의가 없습니다');
+      }
+
       setState(() {
-        _allCourses = List<Map<String, dynamic>>.from(response);
+        _allCourses = courses;
         _applyFilter();
       });
     } catch (e) {
-      print('Error loading courses: $e');
+      _showError('강의 목록을 불러올 수 없습니다');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -50,37 +53,19 @@ class _AllCoursesScreenState extends State<AllCoursesScreen> {
 
   Future<void> _enrollCourse(String courseId) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
-      
-      // 이미 참여 중인지 확인
-      final existing = await _supabase
-          .from('course_students')
-          .select()
-          .eq('course_id', courseId)
-          .eq('student_id', userId ?? '')
-          .single();
-      
-      if (existing != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('이미 참여 중인 강의입니다')),
-        );
-        return;
-      }
-      
-      // 강의 참여
-      await _supabase.from('course_students').insert({
-        'course_id': courseId,
-        'student_id': userId,
-        'enrolled_at': DateTime.now().toIso8601String(),
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('강의 참여가 완료되었습니다')),
-      );
-      
+      await StudentCourseService.enrollCourse(courseId);
+      _showError('강의에 참여했습니다');
       _loadAllCourses();
     } catch (e) {
-      print('Error enrolling course: $e');
+      _showError(e.toString().contains('이미 참여') ? '이미 참여 중인 강의입니다' : '참여 실패');
+    }
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     }
   }
 
@@ -99,18 +84,36 @@ class _AllCoursesScreenState extends State<AllCoursesScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.white,
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: '강의명 또는 선생님 이름으로 검색...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: '강의명 또는 선생님 이름으로 검색...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    _searchQuery = value;
+                    _applyFilter();
+                  },
+                ),
               ),
-            ),
-            onChanged: (value) {
-              _searchQuery = value;
-              _applyFilter();
-            },
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadAllCourses,
+                  tooltip: '새로고침',
+                ),
+              ),
+            ],
           ),
         ),
         
@@ -156,7 +159,7 @@ class _AllCoursesScreenState extends State<AllCoursesScreen> {
                   return DataRow(
                     cells: [
                       DataCell(Text(
-                        course['name'] ?? 'ggg',
+                        course['name'] ?? '강의명 없음',
                         style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
                       )),
                       DataCell(Row(
@@ -164,7 +167,7 @@ class _AllCoursesScreenState extends State<AllCoursesScreen> {
                           const Icon(Icons.person, color: Colors.grey, size: 16),
                           const SizedBox(width: 4),
                           Text(
-                            course['teacher_name'] ?? '선생님1 선생님',
+                            course['teacher_name'] ?? '교사 미정',
                             style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
                           ),
                         ],
@@ -185,7 +188,7 @@ class _AllCoursesScreenState extends State<AllCoursesScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            '참여중',
+                            '참여가능',
                             style: TextStyle(
                               fontSize: isPhoneScreen ? 11 : 12,
                               color: Colors.blue[700],

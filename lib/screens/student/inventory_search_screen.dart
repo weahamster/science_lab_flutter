@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/student/search_service.dart';
-
 
 class InventorySearchScreen extends StatefulWidget {
   const InventorySearchScreen({super.key});
@@ -11,7 +9,6 @@ class InventorySearchScreen extends StatefulWidget {
 }
 
 class _InventorySearchScreenState extends State<InventorySearchScreen> {
-  final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _inventory = [];
   List<Map<String, dynamic>> _filteredInventory = [];
   String _searchQuery = '';
@@ -26,14 +23,13 @@ class _InventorySearchScreenState extends State<InventorySearchScreen> {
   Future<void> _loadInventory() async {
     setState(() => _isLoading = true);
     try {
-      final items = await StudentSearchService.searchInventory(searchQuery: _searchQuery);
-      
+      final items = await StudentSearchService.searchInventory();
       setState(() {
-        _inventory = List<Map<String, dynamic>>.from(response);
+        _inventory = items;
         _applyFilter();
       });
     } catch (e) {
-      print('Error loading inventory: $e');
+      _showError('물품 목록을 불러올 수 없습니다');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -47,6 +43,14 @@ class _InventorySearchScreenState extends State<InventorySearchScreen> {
             item['location'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     });
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   @override
@@ -64,18 +68,65 @@ class _InventorySearchScreenState extends State<InventorySearchScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.white,
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: '물품명 또는 위치로 검색...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: '물품명 또는 위치로 검색...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    _searchQuery = value;
+                    _applyFilter();
+                  },
+                ),
               ),
-            ),
-            onChanged: (value) {
-              _searchQuery = value;
-              _applyFilter();
-            },
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadInventory,
+                  tooltip: '새로고침',
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // 정보 표시
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.grey[100],
+          child: Row(
+            children: [
+              Text(
+                '총 ${_filteredInventory.length}개의 물품',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '재고 부족: ${_filteredInventory.where((i) => (i['quantity'] ?? 0) < 10).length}개',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.orange[700],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         
@@ -95,10 +146,15 @@ class _InventorySearchScreenState extends State<InventorySearchScreen> {
                     style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
                   DataColumn(label: Text('위치', 
                     style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
+                  DataColumn(label: Text('상태', 
+                    style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
                   DataColumn(label: Text('비고', 
                     style: TextStyle(fontSize: isPhoneScreen ? 12 : 14))),
                 ],
                 rows: _filteredInventory.map((item) {
+                  final quantity = item['quantity'] ?? 0;
+                  final isLowStock = quantity < 10;
+                  
                   return DataRow(
                     cells: [
                       DataCell(Text(
@@ -110,11 +166,11 @@ class _InventorySearchScreenState extends State<InventorySearchScreen> {
                       )),
                       DataCell(
                         Text(
-                          '${item['quantity'] ?? 0}',
+                          '$quantity',
                           style: TextStyle(
                             fontSize: isPhoneScreen ? 12 : 14,
-                            color: (item['quantity'] ?? 0) < 10 ? Colors.red : Colors.black,
-                            fontWeight: (item['quantity'] ?? 0) < 10 ? FontWeight.bold : FontWeight.normal,
+                            color: isLowStock ? Colors.red : Colors.black,
+                            fontWeight: isLowStock ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -132,6 +188,23 @@ class _InventorySearchScreenState extends State<InventorySearchScreen> {
                               style: TextStyle(fontSize: isPhoneScreen ? 12 : 14),
                             ),
                           ],
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isLowStock ? Colors.red[50] : Colors.green[50],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isLowStock ? '부족' : '충분',
+                            style: TextStyle(
+                              fontSize: isPhoneScreen ? 11 : 12,
+                              color: isLowStock ? Colors.red[700] : Colors.green[700],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                       DataCell(Text(
